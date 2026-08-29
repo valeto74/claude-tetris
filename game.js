@@ -28,6 +28,9 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+const HIGHSCORES_KEY = 'tetris.highscores.v1';
+const MAX_HIGHSCORES = 5;
+
 function dropIntervalForLevel(lvl) {
   return Math.max(100, 1000 - (lvl - 1) * 90);
 }
@@ -43,6 +46,16 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const highscoreEntry = document.getElementById('highscore-entry');
+const playerNameInput = document.getElementById('player-name-input');
+const saveScoreBtn = document.getElementById('save-score-btn');
+const hsTbodyGameover = document.getElementById('hs-tbody-gameover');
+const startScreen = document.getElementById('start-screen');
+const playBtn = document.getElementById('play-btn');
+const resetScoresBtn = document.getElementById('reset-scores-btn');
+const hsTbodyStart = document.getElementById('hs-tbody-start');
+const hsBestCombo = document.getElementById('hs-best-combo');
+const hsBestLines = document.getElementById('hs-best-lines');
 const skinSelect = document.getElementById('skin-select');
 const gameoverBox = document.getElementById('gameover-box');
 const pauseMenu = document.getElementById('pause-menu');
@@ -53,15 +66,117 @@ const pauseRestartBtn = document.getElementById('pause-restart-btn');
 const controlsBtn = document.getElementById('controls-btn');
 const backBtn = document.getElementById('back-btn');
 const startLevelSelect = document.getElementById('start-level');
+const startLevelInitialSelect = document.getElementById('start-level-initial');
 
-for (let i = 1; i <= 15; i++) {
-  const opt = document.createElement('option');
-  opt.value = i;
-  opt.textContent = i;
-  startLevelSelect.appendChild(opt);
+for (const select of [startLevelSelect, startLevelInitialSelect]) {
+  for (let i = 1; i <= 15; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    select.appendChild(opt);
+  }
 }
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, startLevel;
+let board, current, next, score, lines, level, combo, maxCombo, paused, gameOver, lastTime, dropAccum, dropInterval, animId, startLevel;
+
+function loadHighscores() {
+  try {
+    const raw = localStorage.getItem(HIGHSCORES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(e => e && typeof e === 'object'
+      && typeof e.name === 'string'
+      && typeof e.score === 'number'
+      && typeof e.lines === 'number'
+      && typeof e.level === 'number'
+      && typeof e.maxCombo === 'number'
+      && typeof e.date === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function saveHighscores(list) {
+  try {
+    localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function clearHighscores() {
+  try {
+    localStorage.removeItem(HIGHSCORES_KEY);
+  } catch {}
+}
+
+function qualifiesForHighscore(s) {
+  const list = loadHighscores();
+  if (list.length < MAX_HIGHSCORES) return true;
+  return s > list[list.length - 1].score;
+}
+
+function addHighscore(name, s, l, lvl, comboValue) {
+  const list = loadHighscores();
+  const entry = { name: name || 'Jugador', score: s, lines: l, level: lvl, maxCombo: comboValue, date: new Date().toISOString() };
+  list.push(entry);
+  list.sort((a, b) => b.score - a.score);
+  list.splice(MAX_HIGHSCORES);
+  saveHighscores(list);
+  return { list, index: list.indexOf(entry) };
+}
+
+function bestComboAndLines() {
+  const list = loadHighscores();
+  let bestCombo = 0, bestLines = 0;
+  for (const e of list) {
+    if (e.maxCombo > bestCombo) bestCombo = e.maxCombo;
+    if (e.lines > bestLines) bestLines = e.lines;
+  }
+  return { bestCombo, bestLines };
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderHighscoreTable(tbody, list, highlightIndex) {
+  tbody.innerHTML = '';
+  if (!list.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.textContent = 'Sin récords todavía';
+    td.className = 'hs-empty';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  list.forEach((entry, i) => {
+    const tr = document.createElement('tr');
+    if (i === highlightIndex) tr.classList.add('hs-highlight');
+    tr.innerHTML = `<td>${i + 1}</td><td>${escapeHtml(entry.name)}</td><td>${entry.score.toLocaleString()}</td><td>${entry.lines}</td><td>${entry.level}</td><td>${entry.maxCombo}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function refreshStartScreen() {
+  const list = loadHighscores();
+  renderHighscoreTable(hsTbodyStart, list, -1);
+  const { bestCombo, bestLines } = bestComboAndLines();
+  hsBestCombo.textContent = bestCombo;
+  hsBestLines.textContent = bestLines;
+}
+
+function showStartScreen() {
+  refreshStartScreen();
+  startScreen.classList.remove('hidden');
+}
+
+function hideStartScreen() {
+  startScreen.classList.add('hidden');
+}
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -131,6 +246,7 @@ function clearLines() {
     dropInterval = dropIntervalForLevel(level);
     updateHUD();
   }
+  return cleared;
 }
 
 function ghostY() {
@@ -158,7 +274,13 @@ function softDrop() {
 
 function lockPiece() {
   merge();
-  clearLines();
+  const cleared = clearLines();
+  if (cleared > 0) {
+    combo++;
+    if (combo > maxCombo) maxCombo = combo;
+  } else {
+    combo = 0;
+  }
   spawn();
 }
 
@@ -337,6 +459,13 @@ function endGame() {
   pauseMenu.classList.add('hidden');
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+  if (qualifiesForHighscore(score)) {
+    highscoreEntry.classList.remove('hidden');
+    playerNameInput.value = 'Jugador';
+  } else {
+    highscoreEntry.classList.add('hidden');
+  }
+  renderHighscoreTable(hsTbodyGameover, loadHighscores(), -1);
   overlay.classList.remove('hidden');
 }
 
@@ -383,6 +512,8 @@ function init() {
   score = 0;
   lines = 0;
   level = startLevel;
+  combo = 0;
+  maxCombo = 0;
   paused = false;
   gameOver = false;
   dropInterval = dropIntervalForLevel(level);
@@ -392,6 +523,8 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  highscoreEntry.classList.add('hidden');
+  hsTbodyGameover.innerHTML = '';
   gameoverBox.classList.remove('hidden');
   pauseMenu.classList.add('hidden');
   cancelAnimationFrame(animId);
@@ -399,6 +532,8 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  if (e.code === 'Space') e.preventDefault();
+  if (!current) return;
   if (e.code === 'Escape' && paused && !pauseControlsView.classList.contains('hidden')) {
     showPauseMainView();
     return;
@@ -423,7 +558,6 @@ document.addEventListener('keydown', e => {
       tryRotate();
       break;
     case 'Space':
-      e.preventDefault();
       hardDrop();
       break;
   }
@@ -456,17 +590,46 @@ backBtn.addEventListener('click', () => {
   showPauseMainView();
 });
 
+function setStartLevel(value) {
+  startLevel = parseInt(value, 10);
+  startLevelSelect.value = startLevel;
+  startLevelInitialSelect.value = startLevel;
+}
+
 startLevelSelect.addEventListener('change', () => {
-  startLevel = parseInt(startLevelSelect.value, 10);
+  setStartLevel(startLevelSelect.value);
   startLevelSelect.blur();
 });
 
-startLevel = 1;
-startLevelSelect.value = startLevel;
+startLevelInitialSelect.addEventListener('change', () => {
+  setStartLevel(startLevelInitialSelect.value);
+  startLevelInitialSelect.blur();
+});
+
+setStartLevel(1);
 
 if (skinSelect) {
   skinSelect.value = currentSkin;
   skinSelect.addEventListener('change', e => setSkin(e.target.value));
 }
 
-init();
+playBtn.addEventListener('click', () => {
+  hideStartScreen();
+  init();
+});
+
+resetScoresBtn.addEventListener('click', () => {
+  if (confirm('¿Seguro que quieres borrar todos los récords?')) {
+    clearHighscores();
+    refreshStartScreen();
+  }
+});
+
+saveScoreBtn.addEventListener('click', () => {
+  const name = playerNameInput.value.trim() || 'Jugador';
+  const { list, index } = addHighscore(name, score, lines, level, maxCombo);
+  renderHighscoreTable(hsTbodyGameover, list, index);
+  highscoreEntry.classList.add('hidden');
+});
+
+showStartScreen();

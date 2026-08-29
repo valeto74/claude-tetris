@@ -58,6 +58,16 @@
       <div class="overlay-box" id="gameover-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
+        <div id="highscore-entry" class="highscore-entry hidden">
+          <input type="text" id="player-name-input" class="hs-input" maxlength="12" value="Jugador" />
+          <button id="save-score-btn">Guardar</button>
+        </div>
+        <table class="hs-table">
+          <thead>
+            <tr><th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Nivel</th><th>Combo</th></tr>
+          </thead>
+          <tbody id="hs-tbody-gameover"></tbody>
+        </table>
         <button id="restart-btn">Reiniciar</button>
       </div>
 
@@ -84,6 +94,34 @@
           </ul>
           <button id="back-btn">Volver</button>
         </div>
+      </div>
+    </div>
+
+    <div id="start-screen" class="start-screen">
+      <div class="start-box">
+        <h2 class="start-heading">RÉCORDS</h2>
+        <div class="hs-summary">
+          <div class="hs-summary-item">
+            <span class="label">MEJOR COMBO</span>
+            <span class="value" id="hs-best-combo">0</span>
+          </div>
+          <div class="hs-summary-item">
+            <span class="label">MÁX. LÍNEAS</span>
+            <span class="value" id="hs-best-lines">0</span>
+          </div>
+        </div>
+        <table class="hs-table">
+          <thead>
+            <tr><th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Nivel</th><th>Combo</th></tr>
+          </thead>
+          <tbody id="hs-tbody-start"></tbody>
+        </table>
+        <div class="level-select">
+          <label for="start-level-initial">Nivel inicial</label>
+          <select id="start-level-initial"></select>
+        </div>
+        <button id="play-btn">Jugar</button>
+        <button id="reset-scores-btn" class="secondary-btn">Resetear récords</button>
       </div>
     </div>
   </div>
