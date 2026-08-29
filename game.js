@@ -39,6 +39,7 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const skinSelect = document.getElementById('skin-select');
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -156,16 +157,107 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+const SKIN_STORAGE_KEY = 'tetris.skin.v1';
+
+const SKINS = {
+  retro: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+      context.fillStyle = 'rgba(255,255,255,0.12)';
+      context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+      context.globalAlpha = 1;
+    },
+  },
+  neon: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      const color = this.colors[colorIndex];
+      context.globalAlpha = alpha ?? 1;
+      context.shadowColor = color;
+      context.shadowBlur = size * 0.5;
+      context.fillStyle = color;
+      context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+      context.shadowBlur = 0;
+      context.globalAlpha = 1;
+    },
+  },
+  pastel: {
+    colors: [null, '#aad8e6', '#fff2b2', '#d9bce8', '#bce8c6', '#f2bcbc', '#bcc4e8', '#f2d3ae'],
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      const px = x * size + 1, py = y * size + 1, s = size - 2;
+      const radius = Math.max(2, size * 0.2);
+      if (context.roundRect) {
+        context.beginPath();
+        context.roundRect(px, py, s, s, radius);
+        context.fill();
+      } else {
+        context.fillRect(px, py, s, s);
+      }
+      context.globalAlpha = 1;
+    },
+  },
+  pixel: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      const px = x * size + 1, py = y * size + 1, s = size - 2;
+      context.fillRect(px, py, s, s);
+      const cell = Math.max(2, Math.floor(s / 4));
+      for (let ry = 0; ry * cell < s; ry++) {
+        for (let rx = 0; rx * cell < s; rx++) {
+          context.fillStyle = (rx + ry) % 2 === 0
+            ? 'rgba(255,255,255,0.15)'
+            : 'rgba(0,0,0,0.12)';
+          const w = Math.min(cell, s - rx * cell);
+          const h = Math.min(cell, s - ry * cell);
+          context.fillRect(px + rx * cell, py + ry * cell, w, h);
+        }
+      }
+      context.globalAlpha = 1;
+    },
+  },
+};
+
+function loadSkin() {
+  try {
+    const saved = localStorage.getItem(SKIN_STORAGE_KEY);
+    if (saved && SKINS[saved]) return saved;
+  } catch (e) {}
+  return 'retro';
+}
+
+let currentSkin = loadSkin();
+
+function applyBodyClass() {
+  document.body.classList.remove(...Object.keys(SKINS).map(name => `skin-${name}`));
+  document.body.classList.add(`skin-${currentSkin}`);
+}
+
+function setSkin(name) {
+  if (!SKINS[name] || name === currentSkin) return;
+  currentSkin = name;
+  try { localStorage.setItem(SKIN_STORAGE_KEY, name); } catch (e) {}
+  applyBodyClass();
+  if (paused || gameOver) {
+    draw();
+    drawNext();
+  }
+}
+
+applyBodyClass();
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
-  if (!colorIndex) return;
-  const color = COLORS[colorIndex];
-  context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
-  context.globalAlpha = 1;
+  SKINS[currentSkin].drawBlock(context, x, y, colorIndex, size, alpha);
 }
 
 function drawGrid() {
@@ -300,5 +392,10 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+if (skinSelect) {
+  skinSelect.value = currentSkin;
+  skinSelect.addEventListener('change', e => setSkin(e.target.value));
+}
 
 init();
