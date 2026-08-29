@@ -45,6 +45,8 @@ body {
 
 /* ---- Panel lateral ---- */
 .panel {
+  position: relative;
+  z-index: 2;
   width: 160px;
   display: flex;
   flex-direction: column;
@@ -78,6 +80,29 @@ body {
   border: 1px solid #2a2a3a;
   background: #1a1a25;
   border-radius: 4px;
+}
+
+#skin-select {
+  background: #22223a;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 12px;
+  padding: 6px 8px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- Skins ---- */
+body.skin-neon #board,
+body.skin-neon #next-canvas {
+  background: #000;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+body.skin-pastel #board,
+body.skin-pastel #next-canvas {
+  background: #232336;
 }
 
 /* ---- Controles ---- */
@@ -118,7 +143,9 @@ kbd {
   border-radius: 4px;
 }
 
-.overlay.hidden {
+.overlay.hidden,
+.overlay-box.hidden,
+.pause-view.hidden {
   display: none;
 }
 
@@ -317,4 +344,81 @@ kbd {
 
 #play-btn:hover {
   background: #9bbdff;
+}
+
+/* ---- Menú de pausa ---- */
+.pause-menu {
+  min-width: 200px;
+}
+
+.pause-menu .overlay-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #7aa2f7;
+}
+
+.pause-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.pause-view button {
+  background: #7aa2f7;
+  color: #0f0f17;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+.pause-view button:hover {
+  background: #9bbdff;
+}
+
+.pause-view ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.pause-view li {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.level-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.level-select label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #555570;
+  font-weight: 600;
+}
+
+.level-select select {
+  background: #22223a;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  padding: 4px 8px;
+  font-family: inherit;
 }

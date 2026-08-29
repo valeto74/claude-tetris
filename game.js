@@ -31,6 +31,10 @@ const LINE_SCORES = [0, 100, 300, 500, 800];
 const HIGHSCORES_KEY = 'tetris.highscores.v1';
 const MAX_HIGHSCORES = 5;
 
+function dropIntervalForLevel(lvl) {
+  return Math.max(100, 1000 - (lvl - 1) * 90);
+}
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -52,8 +56,28 @@ const resetScoresBtn = document.getElementById('reset-scores-btn');
 const hsTbodyStart = document.getElementById('hs-tbody-start');
 const hsBestCombo = document.getElementById('hs-best-combo');
 const hsBestLines = document.getElementById('hs-best-lines');
+const skinSelect = document.getElementById('skin-select');
+const gameoverBox = document.getElementById('gameover-box');
+const pauseMenu = document.getElementById('pause-menu');
+const pauseMainView = document.getElementById('pause-main-view');
+const pauseControlsView = document.getElementById('pause-controls-view');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsBtn = document.getElementById('controls-btn');
+const backBtn = document.getElementById('back-btn');
+const startLevelSelect = document.getElementById('start-level');
+const startLevelInitialSelect = document.getElementById('start-level-initial');
 
-let board, current, next, score, lines, level, combo, maxCombo, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+for (const select of [startLevelSelect, startLevelInitialSelect]) {
+  for (let i = 1; i <= 15; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    select.appendChild(opt);
+  }
+}
+
+let board, current, next, score, lines, level, combo, maxCombo, paused, gameOver, lastTime, dropAccum, dropInterval, animId, startLevel;
 
 function loadHighscores() {
   try {
@@ -219,7 +243,7 @@ function clearLines() {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    dropInterval = dropIntervalForLevel(level);
     updateHUD();
   }
   return cleared;
@@ -275,16 +299,107 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+const SKIN_STORAGE_KEY = 'tetris.skin.v1';
+
+const SKINS = {
+  retro: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+      context.fillStyle = 'rgba(255,255,255,0.12)';
+      context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+      context.globalAlpha = 1;
+    },
+  },
+  neon: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      const color = this.colors[colorIndex];
+      context.globalAlpha = alpha ?? 1;
+      context.shadowColor = color;
+      context.shadowBlur = size * 0.5;
+      context.fillStyle = color;
+      context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+      context.shadowBlur = 0;
+      context.globalAlpha = 1;
+    },
+  },
+  pastel: {
+    colors: [null, '#aad8e6', '#fff2b2', '#d9bce8', '#bce8c6', '#f2bcbc', '#bcc4e8', '#f2d3ae'],
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      const px = x * size + 1, py = y * size + 1, s = size - 2;
+      const radius = Math.max(2, size * 0.2);
+      if (context.roundRect) {
+        context.beginPath();
+        context.roundRect(px, py, s, s, radius);
+        context.fill();
+      } else {
+        context.fillRect(px, py, s, s);
+      }
+      context.globalAlpha = 1;
+    },
+  },
+  pixel: {
+    colors: COLORS,
+    drawBlock(context, x, y, colorIndex, size, alpha) {
+      if (!colorIndex) return;
+      context.globalAlpha = alpha ?? 1;
+      context.fillStyle = this.colors[colorIndex];
+      const px = x * size + 1, py = y * size + 1, s = size - 2;
+      context.fillRect(px, py, s, s);
+      const cell = Math.max(2, Math.floor(s / 4));
+      for (let ry = 0; ry * cell < s; ry++) {
+        for (let rx = 0; rx * cell < s; rx++) {
+          context.fillStyle = (rx + ry) % 2 === 0
+            ? 'rgba(255,255,255,0.15)'
+            : 'rgba(0,0,0,0.12)';
+          const w = Math.min(cell, s - rx * cell);
+          const h = Math.min(cell, s - ry * cell);
+          context.fillRect(px + rx * cell, py + ry * cell, w, h);
+        }
+      }
+      context.globalAlpha = 1;
+    },
+  },
+};
+
+function loadSkin() {
+  try {
+    const saved = localStorage.getItem(SKIN_STORAGE_KEY);
+    if (saved && SKINS[saved]) return saved;
+  } catch (e) {}
+  return 'retro';
+}
+
+let currentSkin = loadSkin();
+
+function applyBodyClass() {
+  document.body.classList.remove(...Object.keys(SKINS).map(name => `skin-${name}`));
+  document.body.classList.add(`skin-${currentSkin}`);
+}
+
+function setSkin(name) {
+  if (!SKINS[name] || name === currentSkin) return;
+  currentSkin = name;
+  try { localStorage.setItem(SKIN_STORAGE_KEY, name); } catch (e) {}
+  applyBodyClass();
+  if (paused || gameOver) {
+    draw();
+    drawNext();
+  }
+}
+
+applyBodyClass();
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
-  if (!colorIndex) return;
-  const color = COLORS[colorIndex];
-  context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
-  context.globalAlpha = 1;
+  SKINS[currentSkin].drawBlock(context, x, y, colorIndex, size, alpha);
 }
 
 function drawGrid() {
@@ -340,6 +455,8 @@ function drawNext() {
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
+  gameoverBox.classList.remove('hidden');
+  pauseMenu.classList.add('hidden');
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   if (qualifiesForHighscore(score)) {
@@ -352,16 +469,24 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
+function showPauseMainView() {
+  pauseMainView.classList.remove('hidden');
+  pauseControlsView.classList.add('hidden');
+}
+
 function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    dropAccum = 0;
     lastTime = performance.now();
+    overlay.classList.add('hidden');
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
+    showPauseMainView();
+    gameoverBox.classList.add('hidden');
+    pauseMenu.classList.remove('hidden');
     overlay.classList.remove('hidden');
   }
 }
@@ -386,12 +511,12 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  level = startLevel;
   combo = 0;
   maxCombo = 0;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = dropIntervalForLevel(level);
   dropAccum = 0;
   lastTime = performance.now();
   next = randomPiece();
@@ -400,6 +525,8 @@ function init() {
   overlay.classList.add('hidden');
   highscoreEntry.classList.add('hidden');
   hsTbodyGameover.innerHTML = '';
+  gameoverBox.classList.remove('hidden');
+  pauseMenu.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
@@ -407,7 +534,14 @@ function init() {
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (!current) return;
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'Escape' && paused && !pauseControlsView.classList.contains('hidden')) {
+    showPauseMainView();
+    return;
+  }
+  if (e.code === 'KeyP' || e.code === 'Escape') {
+    if (!gameOver) togglePause();
+    return;
+  }
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -430,7 +564,54 @@ document.addEventListener('keydown', e => {
   updateHUD();
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', () => {
+  restartBtn.blur();
+  init();
+});
+
+resumeBtn.addEventListener('click', () => {
+  resumeBtn.blur();
+  togglePause();
+});
+
+pauseRestartBtn.addEventListener('click', () => {
+  pauseRestartBtn.blur();
+  init();
+});
+
+controlsBtn.addEventListener('click', () => {
+  controlsBtn.blur();
+  pauseMainView.classList.add('hidden');
+  pauseControlsView.classList.remove('hidden');
+});
+
+backBtn.addEventListener('click', () => {
+  backBtn.blur();
+  showPauseMainView();
+});
+
+function setStartLevel(value) {
+  startLevel = parseInt(value, 10);
+  startLevelSelect.value = startLevel;
+  startLevelInitialSelect.value = startLevel;
+}
+
+startLevelSelect.addEventListener('change', () => {
+  setStartLevel(startLevelSelect.value);
+  startLevelSelect.blur();
+});
+
+startLevelInitialSelect.addEventListener('change', () => {
+  setStartLevel(startLevelInitialSelect.value);
+  startLevelInitialSelect.blur();
+});
+
+setStartLevel(1);
+
+if (skinSelect) {
+  skinSelect.value = currentSkin;
+  skinSelect.addEventListener('change', e => setSkin(e.target.value));
+}
 
 playBtn.addEventListener('click', () => {
   hideStartScreen();

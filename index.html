@@ -31,6 +31,16 @@
           <canvas id="next-canvas" width="120" height="120"></canvas>
         </div>
 
+        <div class="panel-section">
+          <span class="label">SKIN</span>
+          <select id="skin-select">
+            <option value="retro">Retro</option>
+            <option value="neon">Neon</option>
+            <option value="pastel">Pastel</option>
+            <option value="pixel">Pixel art</option>
+          </select>
+        </div>
+
         <div class="panel-section controls">
           <span class="label">CONTROLS</span>
           <ul>
@@ -45,7 +55,7 @@
     </div>
 
     <div id="overlay" class="overlay hidden">
-      <div class="overlay-box">
+      <div class="overlay-box" id="gameover-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
         <div id="highscore-entry" class="highscore-entry hidden">
@@ -59,6 +69,31 @@
           <tbody id="hs-tbody-gameover"></tbody>
         </table>
         <button id="restart-btn">Reiniciar</button>
+      </div>
+
+      <div class="overlay-box pause-menu hidden" id="pause-menu">
+        <p class="overlay-title">PAUSA</p>
+
+        <div class="pause-view" id="pause-main-view">
+          <button id="resume-btn">Reanudar</button>
+          <button id="pause-restart-btn">Reiniciar</button>
+          <button id="controls-btn">Ver controles</button>
+          <div class="level-select">
+            <label for="start-level">Nivel inicial</label>
+            <select id="start-level"></select>
+          </div>
+        </div>
+
+        <div class="pause-view hidden" id="pause-controls-view">
+          <ul>
+            <li><kbd>←</kbd><kbd>→</kbd> mover</li>
+            <li><kbd>↑</kbd> rotar</li>
+            <li><kbd>↓</kbd> bajar</li>
+            <li><kbd>Space</kbd> caída</li>
+            <li><kbd>P</kbd> / <kbd>Esc</kbd> pausa</li>
+          </ul>
+          <button id="back-btn">Volver</button>
+        </div>
       </div>
     </div>
 
@@ -81,6 +116,10 @@
           </thead>
           <tbody id="hs-tbody-start"></tbody>
         </table>
+        <div class="level-select">
+          <label for="start-level-initial">Nivel inicial</label>
+          <select id="start-level-initial"></select>
+        </div>
         <button id="play-btn">Jugar</button>
         <button id="reset-scores-btn" class="secondary-btn">Resetear récords</button>
       </div>
